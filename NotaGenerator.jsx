@@ -165,14 +165,52 @@ const ReceiptView = React.forwardRef(({ spbu, transaction, totalPrice }, ref) =>
             {/* END: PENYESUAIAN ALIGNMENT TITIK DUA */}
 
             <div className="border-t border-b border-dashed border-black my-1 h-0"></div>
+            {/* Blok Data Transaksi Utama: Disesuaikan untuk meratakan titik dua secara vertikal */}
             <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between"><span>Pulau/Pompa</span><span>: {transaction.islandPump}</span></div>
-                <div className="flex justify-between"><span>Nama Produk</span><span>: {transaction.productName}</span></div>
-                <div className="flex justify-between"><span>Harga/Liter</span><span>: Rp. {formatRupiah(priceLiter)}</span></div>
-                <div className="flex justify-between"><span>Volume</span><span>: (L) {totalVolume.toFixed(2)}</span></div>
-                <div className="flex justify-between font-bold text-xs"><span>Total Harga</span><span>: Rp. {formatRupiah(finalPrice)}</span></div>
-                <div className="flex justify-between"><span>Operator</span><span>: {transaction.operator}</span></div>
-                <div className="flex justify-between"><span>Nopol</span><span>: {transaction.nopol}</span></div>
+                {/* Menggunakan div flex justify-between. Di sisi kiri: Label dengan lebar tetap + Titik dua. Di sisi kanan: Nilai. */}
+                <div className="flex justify-between">
+                    <span className="font-medium inline-flex">
+                        <span className="inline-block w-[120px]">Pulau/Pompa</span>:
+                    </span>
+                    <span>{transaction.islandPump}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="font-medium inline-flex">
+                        <span className="inline-block w-[120px]">Nama Produk</span>:
+                    </span>
+                    <span>{transaction.productName}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="font-medium inline-flex">
+                        <span className="inline-block w-[120px]">Harga/Liter</span>:
+                    </span>
+                    <span>Rp. {formatRupiah(priceLiter)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="font-medium inline-flex">
+                        <span className="inline-block w-[120px]">Volume</span>:
+                    </span>
+                    <span>(L) {totalVolume.toFixed(2)}</span>
+                </div>
+                {/* Total Harga tetap harus Bold dan diperbesar */}
+                <div className="flex justify-between font-bold text-xs">
+                    <span className="inline-flex">
+                         <span className="inline-block w-[120px]">Total Harga</span>:
+                    </span>
+                    <span>Rp. {formatRupiah(finalPrice)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="font-medium inline-flex">
+                        <span className="inline-block w-[120px]">Operator</span>:
+                    </span>
+                    <span>{transaction.operator}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="font-medium inline-flex">
+                        <span className="inline-block w-[120px]">Nopol</span>:
+                    </span>
+                    <span>{transaction.nopol}</span>
+                </div>
             </div>
             <div className="border-t border-b border-dashed border-black my-1 h-0"></div>
             {/* CASH DIUBAH MENJADI TOTAL BAYAR DAN NOMINAL DIPERBESAR */}
