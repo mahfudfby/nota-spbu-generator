@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Nota Bensin SPBU</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter (Menggantikan Font Sans Default) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        /* Menggunakan font Inter secara default */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* bg-gray-200 */
+        }
+        /* Custom style untuk layout nota (tetap menggunakan font-sans di dalam elemen ini) */
+        #receipt-preview {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            text-align: left;
+            padding: 8px; /* p-2 */
+            color: #000;
+            background-color: white;
+            line-height: 1.2; /* Mengurangi jarak antar baris */
+        }
+        /* Style untuk tombol loading */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center text-white z-50">Memuat...</div>
+    
+    <div id="main-content" class="p-4 flex justify-center hidden">
+        <div class="w-full max-w-md">
+            <!-- Header -->
+            <div class="text-center mb-4 border-b-4 border-indigo-500 pb-2">
+                <h1 class="text-3xl font-extrabold text-gray-800">Generator Nota</h1>
+                <p class="text-sm font-medium text-gray-700 mt-1">
+                    By Mahfudfebry
+                </p>
+                <p class="text-xs text-gray-500">
+                    Trakteer Kopi eWallet DANA: 0822 3465 1413
+                </p>
+            </div>
+            <!-- Akhir Header -->
+
+            <!-- Feedback Message -->
+            <div id="feedback-message" class="hidden p-3 rounded-lg text-white mb-4"></div>
+
+            <!-- Bagian 1: Pilih SPBU -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+                <h2 class="text-xl font-bold mb-3">1. Pilih SPBU</h2>
+                <div class="flex space-x-2">
+                    <select id="spbu-selector" class="flex-grow p-2 border rounded-lg"></select>
+                    <button id="edit-spbu-btn" class="bg-yellow-500 text-white px-3 rounded-lg hover:bg-yellow-600 transition">Edit</button>
+                    <button id="add-new-spbu-btn" class="bg-green-600 text-white px-3 rounded-lg hover:bg-green-700 transition">Baru</button>
+                </div>
+            </div>
+
+            <!-- Bagian Edit Template (Conditional) -->
+            <div id="edit-template-section" class="mb-6 p-4 bg-white rounded-lg shadow-xl border-t-4 border-blue-500 space-y-4 hidden">
+                <h2 class="text-xl font-bold text-blue-700">Edit Template</h2>
+                <div class="flex space-x-2 items-end">
+                    <div class="flex-grow">
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Nama SPBU</label>
+                        <input type="text" id="spbu-name" name="name" class="w-full p-2 border rounded-lg bg-white" oninput="handleSpbuChange(this)">
+                    </div>
+                    <button id="ai-generate-btn" class="bg-purple-600 text-white p-2 h-10 w-10 rounded-lg flex items-center justify-center hover:bg-purple-700 transition" title="Generate dengan AI">✨</button>
+                </div>
+                
+                <!-- Upload Logo -->
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 block">Upload Logo (Otomatis Resize & Grayscale)</label>
+                    <input type="file" id="logo-upload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200">
+                    <div class='flex justify-between items-center'>
+                        <p class="text-xs text-red-500">
+                            PENTING: Maksimal lebar logo 204px.
+                        </p>
+                        <button id="clear-logo-btn" class="text-xs text-red-600 hover:underline hidden">Hapus Logo</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm block">Alamat</label>
+                    <textarea id="spbu-address" name="address" rows="3" class="w-full p-2 border rounded-lg" oninput="handleSpbuChange(this)"></textarea>
+                </div>
+                
+                <!-- Footer Terkunci -->
+                <div>
+                    <label class="text-sm block">Footer (Terkunci)</label>
+                    <textarea id="spbu-footer" name="footerNote" rows="6" disabled class="w-full p-2 border rounded-lg bg-gray-200 cursor-not-allowed"></textarea>
+                </div>
+                
+                <!-- Lebar Nota -->
+                <div>
+                    <label class="text-sm font-medium text-gray-700 block mb-1">Lebar Nota (px) - Default: 275</label>
+                    <input type="tel" id="spbu-width" name="receiptWidth" class="w-full p-2 border rounded-lg bg-white" oninput="handleSpbuChange(this)">
+                </div>
+
+                <div class="flex space-x-2 mt-4">
+                    <button id="save-spbu-btn" class="flex-grow bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition">Simpan</button>
+                    <button id="cancel-edit-btn" class="bg-gray-400 text-white p-2 rounded-lg hover:bg-gray-500 transition">Batal</button>
+                    <button id="delete-spbu-btn" class="bg-red-500 text-white p-2 rounded-lg transition-colors hidden">Hapus</button>
+                </div>
+            </div>
+            
+            <!-- Bagian Data Transaksi (Conditional) -->
+            <div id="transaction-section">
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+                    <h2 class="text-xl font-bold mb-3">2. Data Transaksi</h2>
+                    <div class="grid grid-cols-2 gap-3" id="transaction-inputs">
+                        <!-- Inputs akan di-generate oleh JavaScript -->
+                    </div>
+                    <div id="total-display" class="mt-4 p-2 bg-blue-100 text-blue-800 font-bold rounded text-center">TOTAL: Rp. 0</div>
+                    <p id="calc-info" class="text-xs text-gray-600 mt-2 text-center"></p>
+                </div>
+
+                <!-- Bagian Preview & Aksi -->
+                <div class="mb-6 p-4 bg-white rounded-lg shadow-xl border-t-4 border-indigo-500">
+                    <h2 class="text-xl font-bold mb-3">3. Preview & Aksi</h2>
+                    <div class="bg-gray-100 border border-dashed p-4 overflow-x-auto flex justify-center">
+                        <!-- Preview Nota -->
+                        <div id="receipt-preview">
+                            <!-- Konten Nota akan dirender di sini -->
+                        </div>
+                    </div>
+                    <div class="flex space-x-3 mt-4">
+                        <button id="export-image-btn" class="flex-1 bg-green-600 text-white p-3 rounded-xl font-bold flex justify-center items-center space-x-1 hover:bg-green-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            <span>Export PNG</span>
+                        </button>
+                        <button id="print-receipt-btn" class="flex-1 bg-indigo-600 text-white p-3 rounded-xl font-bold flex justify-center items-center space-x-1 hover:bg-indigo-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m0 0h6m-6 0v2a2 2 0 002 2h2a2 2 0 002-2v-2" /></svg>
+                            <span>Cetak 58mm</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Import semua fungsi Firestore yang diperlukan
+        import { getFirestore, doc, setDoc, collection, query, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase instances
+        window.app = null;
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.isAuthReady = false;
+        
+        // --- PERBAIKAN 1: Menetapkan fungsi Firestore ke window scope ---
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.collection = collection;
+        window.query = query;
+        window.onSnapshot = onSnapshot;
+        window.deleteDoc = deleteDoc;
+        // --- Akhir PERBAIKAN 1 ---
+
+        // Memindahkan variabel ini ke window scope
+        window.firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Pindahkan fungsi ke window agar dapat diakses oleh HTML/JS biasa
+        window.initApp = async function() {
+            try {
+                // Menggunakan window.firebaseConfig
+                if (Object.keys(window.firebaseConfig).length === 0) {
+                     displayFeedback('Kesalahan: Konfigurasi Firebase tidak tersedia.', 'error');
+                     document.getElementById('loading-overlay').classList.add('hidden');
+                     document.getElementById('main-content').classList.remove('hidden');
+                     return;
+                }
+                
+                window.app = initializeApp(window.firebaseConfig);
+                window.db = getFirestore(window.app);
+                window.auth = getAuth(window.app);
+                
+                // Panggil pendengar otentikasi
+                authListener();
+            } catch (e) {
+                displayFeedback(`Init Error: ${e.message}`, 'error');
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+            }
+        }
+
+        function authListener() {
+            onAuthStateChanged(window.auth, async (user) => {
+                if (user) {
+                    window.userId = user.uid;
+                } else if (window.initialAuthToken) {
+                    await signInWithCustomToken(window.auth, window.initialAuthToken);
+                    window.userId = window.auth.currentUser?.uid;
+                } else {
+                    await signInAnonymously(window.auth);
+                    window.userId = window.auth.currentUser?.uid;
+                }
+                window.isAuthReady = true;
+                
+                // Setelah autentikasi selesai, muat data
+                loadSpbuConfigs();
+                
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+            });
+        }
+        
+        // Panggil initApp saat skrip dimuat (akan dipanggil oleh window.onload)
+        window.initAppModule = window.initApp;
+    </script>
+
+    <!-- Main JavaScript Logic (Non-module) -->
+    <script>
+        // --- Global State ---
+        let spbuList = [];
+        let selectedSpbuId = '';
+        let currentSpbu = {};
+        let transactionData = {};
+        let isEditingSpbu = false;
+        let isGenerating = false;
+        let isAiGenerating = false;
+        let deleteConfirm = false;
+        let isLibReady = false;
+
+        // --- Konstanta ---
+        const LOGO_MAX_WIDTH = 204;
+        const FALLBACK_LOGO_URL = `https://placehold.co/${LOGO_MAX_WIDTH}x70/ff0000/ffffff?text=LOGO+SPBU`; 
+        const LOCKED_FOOTER_TEXT = " TERIMAKASIH ATAS KUNJUNGAN ANDA \n____________________________\n____________________________\n____________________________\n____________________________\n____________________________\n"; 
+
+        const initialTransactionData = {
+            shift: '1',
+            noTrans: Math.floor(100000 + Math.random() * 900000).toString(),
+            date: formatDate(new Date()),
+            time: formatTime(new Date()),
+            islandPump: '1',
+            productName: 'Pertalite',
+            pricePerLiter: 10000,
+            volume: 10.0,
+            cashAmount: 100000, // Nominal Beli/Total Harga
+            operator: 'Admin',
+            nopol: 'DR 1234 XY',
+        };
+
+        const initialSpbuConfig = {
+            name: 'SPBU PERTAMINA 00.000.00',
+            address: 'ALAMAT SPBU LENGKAP',
+            footerNote: LOCKED_FOOTER_TEXT,
+            receiptWidth: 275, 
+            id: generateId(),
+            logoBase64: null, 
+        };
+        
+        // --- Initialization on Load ---
+        window.onload = function() {
+            // Inisialisasi state
+            transactionData = { ...initialTransactionData };
+            currentSpbu = { ...initialSpbuConfig };
+            
+            // Panggil fungsi init dari module Firebase
+            if (window.initAppModule) {
+                window.initAppModule();
+            } else {
+                // Fallback jika module gagal dimuat
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+                displayFeedback('Gagal memuat modul Firebase.', 'error');
+            }
+            
+            // Load html2canvas
+            loadHtml2Canvas();
+            
+            // Render awal UI
+            renderApp();
+            
+            // Attach event listeners
+            attachEventListeners();
+        };
+
+        // --- UTILITIES ---
+
+        function generateId() {
+            return 'spbu-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function displayFeedback(message, type) {
+            const feedbackEl = document.getElementById('feedback-message');
+            feedbackEl.textContent = message;
+            feedbackEl.className = 'p-3 rounded-lg text-white mb-4'; // Reset class
+            feedbackEl.classList.remove('hidden');
+            
+            if (type === 'error') feedbackEl.classList.add('bg-red-500');
+            else if (type === 'success') feedbackEl.classList.add('bg-green-500');
+            else feedbackEl.classList.add('bg-blue-500');
+            
+            setTimeout(() => {
+                feedbackEl.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Fixes the error: date.getMinutes().getMinutes is not a function
+        function formatTime(date) {
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        function formatDate(date) {
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+        
+        function formatRupiah(number) {
+            if (number === null || number === undefined || isNaN(number)) return '0';
+            return Math.round(number).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function loadHtml2Canvas() {
+            if (window.html2canvas) {
+                isLibReady = true;
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.async = true;
+            script.onload = () => {
+                isLibReady = true;
+                // Pastikan tombol diaktifkan setelah lib siap
+                document.getElementById('export-image-btn').disabled = false;
+                document.getElementById('print-receipt-btn').disabled = false;
+            };
+            script.onerror = () => displayFeedback('Gagal memuat library pencetakan.', 'error');
+            document.body.appendChild(script);
+        }
+
+        function resizeImageAndGetBase64(file, maxWidth, callback) {
+            const reader = new FileReader();
+            reader.onload = (readerEvent) => {
+                const img = new Image();
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = height * (maxWidth / width);
+                        width = maxWidth;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    callback(dataUrl);
+                };
+                img.src = readerEvent.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- FIREBASE/FIRESTORE LOGIC ---
+        function loadSpbuConfigs() {
+            if (!window.db || !window.isAuthReady) return;
+            // Menggunakan window.collection dan window.query
+            const q = window.query(window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'spbu_configs'));
+            // Menggunakan window.onSnapshot
+            window.onSnapshot(q, (snapshot) => {
+                spbuList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Sinkronisasi state setelah pembaruan
+                syncSpbuSelection();
+                
+                // Render ulang UI
+                renderApp();
+            }, (e) => console.error('Gagal memuat data:', e));
+        }
+        
+        function syncSpbuSelection() {
+            // Pilih SPBU yang ada atau gunakan default
+            if (spbuList.length > 0) {
+                if (!selectedSpbuId || !spbuList.find(s => s.id === selectedSpbuId)) {
+                    selectedSpbuId = spbuList[0].id;
+                }
+            } else {
+                selectedSpbuId = '';
+            }
+
+            const selected = spbuList.find(s => s.id === selectedSpbuId);
+            if (selected) {
+                 // Selalu timpa footer dengan teks terkunci saat memilih/memuat
+                currentSpbu = { ...selected, footerNote: LOCKED_FOOTER_TEXT }; 
+            } else {
+                // Default jika tidak ada data
+                currentSpbu = { ...initialSpbuConfig, receiptWidth: 275 }; 
+            }
+        }
+        
+        // --- CALCULATIONS (Derived State) ---
+        function calculateTransaction() {
+            const priceLiter = parseFloat(transactionData.pricePerLiter) || 0;
+            const nominalBeli = parseFloat(transactionData.cashAmount) || 0;
+
+            let calculatedVolume = parseFloat(transactionData.volume) || 0;
+            let finalPrice = nominalBeli;
+            let isVolumeCalculated = false;
+
+            if (nominalBeli > 0 && priceLiter > 0) {
+                calculatedVolume = nominalBeli / priceLiter;
+                isVolumeCalculated = true;
+                finalPrice = nominalBeli;
+            } else if (calculatedVolume > 0 && priceLiter > 0) {
+                finalPrice = calculatedVolume * priceLiter;
+            } else {
+                calculatedVolume = 0;
+                finalPrice = 0;
+            }
+            
+            return { calculatedVolume, finalPrice, isVolumeCalculated };
+        }
+
+        // --- RENDER UI FUNCTIONS ---
+
+        function renderApp() {
+            renderSpbuSelector();
+            renderEditTemplateSection();
+            renderTransactionInputs();
+            renderReceiptPreview();
+        }
+
+        function renderSpbuSelector() {
+            const selector = document.getElementById('spbu-selector');
+            selector.innerHTML = ''; // Clear existing options
+            
+            if (spbuList.length === 0) {
+                selector.innerHTML = `<option value="">Tidak Ada Template</option>`;
+                selector.disabled = true;
+                document.getElementById('edit-spbu-btn').disabled = true;
+            } else {
+                selector.disabled = false;
+                document.getElementById('edit-spbu-btn').disabled = false;
+                
+                spbuList.forEach(spbu => {
+                    const option = document.createElement('option');
+                    option.value = spbu.id;
+                    option.textContent = spbu.name;
+                    if (spbu.id === selectedSpbuId) {
+                        option.selected = true;
+                    }
+                    selector.appendChild(option);
+                });
+            }
+        }
+        
+        function renderEditTemplateSection() {
+            const section = document.getElementById('edit-template-section');
+            const deleteBtn = document.getElementById('delete-spbu-btn');
+            const clearLogoBtn = document.getElementById('clear-logo-btn');
+            
+            if (isEditingSpbu) {
+                section.classList.remove('hidden');
+                
+                document.getElementById('spbu-name').value = currentSpbu.name || '';
+                document.getElementById('spbu-address').value = currentSpbu.address || '';
+                document.getElementById('spbu-footer').value = LOCKED_FOOTER_TEXT;
+                document.getElementById('spbu-width').value = currentSpbu.receiptWidth || 275;
+
+                // Tampilkan tombol hapus jika bukan template baru (sudah ada ID)
+                if (currentSpbu.id && spbuList.length > 0) {
+                    deleteBtn.classList.remove('hidden');
+                } else {
+                    deleteBtn.classList.add('hidden');
+                }
+                
+                // Tampilkan tombol hapus logo
+                if(currentSpbu.logoBase64) {
+                    clearLogoBtn.classList.remove('hidden');
+                } else {
+                    clearLogoBtn.classList.add('hidden');
+                }
+
+                document.getElementById('transaction-section').classList.add('hidden');
+
+            } else {
+                section.classList.add('hidden');
+                document.getElementById('transaction-section').classList.remove('hidden');
+            }
+        }
+        
+        function renderInput(label, name, value, inputType = 'text', disabled = false, showSyncButton = false) {
+            const isTel = inputType === 'tel';
+            const displayValue = isTel && value === 0 && !disabled ? '' : value;
+            const syncButtonHtml = showSyncButton ? `
+                <div class="relative">
+                    <button type="button" onclick="updateDateTime()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-lg transition duration-150 transform hover:scale-105" title="Gunakan waktu sekarang">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
+            ` : '';
+
+            return `
+                <div>
+                    <label class="text-sm font-medium text-gray-700 block mb-1">${label}</label>
+                    <div class="flex items-center space-x-1">
+                        <input 
+                            type="${isTel ? 'text' : inputType}" 
+                            name="${name}" 
+                            value="${displayValue}" 
+                            oninput="handleTransactionChange(this)"
+                            ${disabled ? 'disabled' : ''} 
+                            class="w-full p-2 border rounded-lg ${disabled ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}" 
+                            ${isTel ? 'inputmode="numeric" pattern="[0-9]*"' : ''}
+                        />
+                        ${syncButtonHtml}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderTransactionInputs() {
+            const { calculatedVolume, finalPrice, isVolumeCalculated } = calculateTransaction();
+            const inputsContainer = document.getElementById('transaction-inputs');
+            
+            // Tentukan nilai Volume yang akan ditampilkan
+            const volumeValue = isVolumeCalculated ? calculatedVolume.toFixed(2) : transactionData.volume;
+            
+            const html = `
+                ${renderInput('Shift', 'shift', transactionData.shift, 'tel')}
+                ${renderInput('No.Trans', 'noTrans', transactionData.noTrans, 'tel')}
+                ${renderInput('Tanggal', 'date', transactionData.date, 'text', false, true)}
+                ${renderInput('Jam', 'time', transactionData.time, 'text', false, true)}
+                ${renderInput('Pulau/Pompa', 'islandPump', transactionData.islandPump)}
+                ${renderInput('Produk', 'productName', transactionData.productName)}
+                ${renderInput('Harga/L', 'pricePerLiter', transactionData.pricePerLiter, 'tel')}
+                ${renderInput('Volume (L)', 'volume', volumeValue, 'tel', isVolumeCalculated)}
+                ${renderInput('Operator', 'operator', transactionData.operator)}
+                ${renderInput('Nopol', 'nopol', transactionData.nopol)}
+                <div class="col-span-2">
+                    ${renderInput('Nominal Beli (Rp)', 'cashAmount', transactionData.cashAmount, 'tel')}
+                </div>
+            `;
+            
+            inputsContainer.innerHTML = html;
+            
+            document.getElementById('total-display').textContent = `TOTAL: Rp. ${formatRupiah(finalPrice)}`;
+            document.getElementById('calc-info').textContent = isVolumeCalculated 
+                ? 'Volume dihitung dari Nominal Beli dan Harga/Liter.' 
+                : 'Nominal Beli dihitung dari Volume dan Harga/Liter.';
+        }
+
+        function renderReceiptRow(label, value, isTotal = false) {
+            const labelClasses = `font-normal w-32 flex-shrink-0 whitespace-nowrap`;
+            const valueClasses = isTotal ? 'text-base font-extrabold' : 'text-base font-normal';
+            const containerClasses = isTotal ? 'text-base font-bold' : 'text-base';
+            
+            return `
+                <div class="flex justify-between ${containerClasses}"> 
+                    <span class="${labelClasses}">${label} :</span> 
+                    <span class="flex-grow text-right ${valueClasses}">${value}</span>
+                </div>
+            `;
+        }
+
+        function renderReceiptPreview() {
+            const { calculatedVolume, finalPrice } = calculateTransaction();
+            const spbu = currentSpbu;
+            const trans = transactionData;
+            
+            const displayVolume = calculatedVolume || parseFloat(trans.volume) || 0;
+            const displayPrice = finalPrice || parseFloat(trans.cashAmount) || 0;
+            const priceLiter = parseFloat(trans.pricePerLiter) || 0;
+
+            const addressLines = (typeof spbu.address === 'string' ? spbu.address : '').split('\n').map(line => `<p class="text-base font-normal">${line}</p>`).join('');
+            const footerLines = (typeof spbu.footerNote === 'string' ? spbu.footerNote : '').split('\n').map((line, i) => `<p>${line || ' '}</p>`).join('');
+            const logoSrc = spbu.logoBase64 || FALLBACK_LOGO_URL;
+            const receiptWidth = spbu.receiptWidth || 275;
+
+            const html = `
+                <!-- Logo Section -->
+                <div class="flex justify-center mb-1">
+                    <img 
+                        src="${logoSrc}" 
+                        alt="Logo SPBU" 
+                        class="w-[${LOGO_MAX_WIDTH}px] h-auto max-w-full filter grayscale" 
+                        onerror="this.onerror=null; this.src='${FALLBACK_LOGO_URL}';" 
+                    />
+                </div>
+                <!-- SPBU Name and Address -->
+                <div class="text-center font-bold mb-1"> 
+                    <p class="text-lg">${spbu.name}</p>
+                    ${addressLines}
+                </div>
+
+                <div class="border-t border-b border-dashed border-black my-1 h-0"></div>
+                
+                <!-- BLOK DATA TANGGAL/SHIFT/NOTA -->
+                <div class="grid grid-cols-2 gap-x-2 text-base text-center">
+                    <div><p class="font-medium text-left">Shift:</p><p class="text-left">${trans.shift}</p></div>
+                    <div><p class="font-medium text-right">No.Trans:</p><p class="text-right">${trans.noTrans}</p></div>
+                    
+                    <div class="col-span-2 border-t border-dashed border-black my-1 h-0"></div>
+
+                    <div><p class="font-bold text-left">Tanggal:</p><p class="font-bold text-left">${trans.date}</p></div>
+                    <div><p class="font-bold text-right">Jam:</p><p class="font-bold text-right">${trans.time}</p></div>
+                </div>
+                <!-- END: BLOK DATA TANGGAL/SHIFT/NOTA -->
+
+                <div class="border-t border-b border-dashed border-black my-1 h-0"></div>
+                
+                <!-- Blok Data Transaksi Utama -->
+                <div class="space-y-0 text-base"> 
+                    ${renderReceiptRow('Pulau/Pompa', trans.islandPump)}
+                    ${renderReceiptRow('Nama Produk', trans.productName)}
+                    ${renderReceiptRow('Harga/Liter', `Rp. ${formatRupiah(priceLiter)}`)}
+                    ${renderReceiptRow('Volume', ` (L) ${displayVolume.toFixed(2)}`)}
+                    
+                    ${renderReceiptRow('Total Harga', `Rp. ${formatRupiah(displayPrice)}`, true)}
+
+                    ${renderReceiptRow('Operator', trans.operator)}
+                    ${renderReceiptRow('Nopol', trans.nopol)}
+                </div>
+
+                <div class="border-t border-b border-dashed border-black my-1 h-0"></div>
+                
+                <!-- Footer -->
+                <div class="text-center mt-2 text-base whitespace-pre-line leading-tight font-bold">
+                    ${footerLines}
+                </div>
+            `;
+            
+            const previewEl = document.getElementById('receipt-preview');
+            previewEl.style.width = `${receiptWidth}px`;
+            previewEl.innerHTML = html;
+        }
+
+        // --- HANDLERS ---
+        
+        function attachEventListeners() {
+            document.getElementById('spbu-selector').addEventListener('change', handleSpbuSelectionChange);
+            document.getElementById('edit-spbu-btn').addEventListener('click', () => setIsEditingSpbu(true) && renderApp());
+            document.getElementById('add-new-spbu-btn').addEventListener('click', handleAddNewSpbu);
+            
+            document.getElementById('ai-generate-btn').addEventListener('click', handleAiGenerateTemplate);
+            document.getElementById('logo-upload').addEventListener('change', handleImageUpload);
+            document.getElementById('clear-logo-btn').addEventListener('click', handleClearLogo);
+            document.getElementById('save-spbu-btn').addEventListener('click', handleSaveSpbu);
+            document.getElementById('cancel-edit-btn').addEventListener('click', () => setIsEditingSpbu(false) && renderApp());
+            document.getElementById('delete-spbu-btn').addEventListener('click', handleDeleteSpbu);
+            
+            document.getElementById('export-image-btn').addEventListener('click', handleExportImage);
+            document.getElementById('print-receipt-btn').addEventListener('click', handlePrintReceipt);
+        }
+
+        function handleSpbuSelectionChange(e) {
+            selectedSpbuId = e.target.value;
+            syncSpbuSelection();
+            isEditingSpbu = false; // Keluar dari mode edit saat ganti template
+            renderApp();
+        }
+
+        function handleTransactionChange(input) {
+            const { name, value } = input;
+            let newValue = value;
+            
+            if (['volume', 'pricePerLiter', 'cashAmount'].includes(name)) {
+                // Hapus semua kecuali angka dan satu titik (untuk desimal)
+                newValue = newValue.replace(/[^0-9.]/g, ''); 
+                
+                // Konversi ke float untuk logika kalkulasi
+                const floatValue = parseFloat(newValue) || 0;
+                
+                // Simpan nilai input (string) agar bisa diedit di UI
+                input.value = newValue; 
+
+                // Logika Kalkulasi: Jika Volume diubah saat Nominal Beli terisi
+                if (name === 'volume' && transactionData.cashAmount > 0) {
+                    transactionData.cashAmount = 0; // Reset Nominal Beli
+                }
+                
+                transactionData[name] = floatValue;
+            } else {
+                transactionData[name] = value;
+            }
+            
+            renderTransactionInputs();
+            renderReceiptPreview();
+        }
+        
+        function handleSpbuChange(input) {
+            const { name, value } = input;
+            
+            // Abaikan perubahan jika nama input adalah 'footerNote' karena sudah dikunci
+            if (name === 'footerNote') return;
+            
+            currentSpbu[name] = name === 'receiptWidth' ? (parseInt(value) || 275) : value;
+            
+            renderReceiptPreview();
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            transactionData.date = formatDate(now);
+            transactionData.time = formatTime(now);
+            displayFeedback('Tanggal dan waktu diperbarui.', 'info');
+            renderTransactionInputs();
+            renderReceiptPreview();
+        }
+        
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            displayFeedback('Sedang memproses gambar...', 'info');
+            
+            resizeImageAndGetBase64(file, LOGO_MAX_WIDTH, (base64Data) => {
+                currentSpbu.logoBase64 = base64Data;
+                displayFeedback('Gambar berhasil diupload dan diresize. Jangan lupa klik Simpan.', 'success');
+                renderEditTemplateSection(); // Update tombol clear
+                renderReceiptPreview();
+            });
+        }
+        
+        function handleClearLogo() {
+            currentSpbu.logoBase64 = null;
+            document.getElementById('logo-upload').value = ''; // Reset input file
+            displayFeedback('Logo berhasil dihapus.', 'info');
+            renderEditTemplateSection();
+            renderReceiptPreview();
+        }
+
+        async function handleSaveSpbu() {
+            if (!window.db || !currentSpbu.name) return displayFeedback('Nama SPBU wajib diisi.', 'error');
+            
+            try {
+                const spbuToSave = { 
+                    ...currentSpbu, 
+                    footerNote: LOCKED_FOOTER_TEXT, 
+                    id: currentSpbu.id && spbuList.find(s => s.id === currentSpbu.id) ? currentSpbu.id : generateId()
+                }; 
+                
+                // Menggunakan window.doc dan window.setDoc
+                await window.setDoc(window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'spbu_configs', spbuToSave.id), spbuToSave, { merge: true });
+                
+                currentSpbu = spbuToSave; 
+                selectedSpbuId = spbuToSave.id;
+                isEditingSpbu = false;
+                deleteConfirm = false; // Reset konfirmasi hapus
+                displayFeedback('Tersimpan!', 'success');
+                renderApp();
+            } catch (e) { displayFeedback(`Gagal simpan: ${e.message}`, 'error'); }
+        }
+        
+        function handleAddNewSpbu() {
+            currentSpbu = { ...initialSpbuConfig, id: generateId(), name: 'SPBU BARU', logoBase64: null, footerNote: LOCKED_FOOTER_TEXT, receiptWidth: 275 };
+            isEditingSpbu = true;
+            selectedSpbuId = '';
+            renderApp();
+        }
+
+        async function handleDeleteSpbu() {
+            if (!deleteConfirm) { 
+                deleteConfirm = true; 
+                document.getElementById('delete-spbu-btn').textContent = 'Yakin Hapus?';
+                document.getElementById('delete-spbu-btn').classList.replace('bg-red-500', 'bg-red-700');
+                setTimeout(() => {
+                    deleteConfirm = false;
+                    document.getElementById('delete-spbu-btn').textContent = 'Hapus';
+                    document.getElementById('delete-spbu-btn').classList.replace('bg-red-700', 'bg-red-500');
+                }, 3000); 
+                return; 
+            }
+            if (!window.db || !currentSpbu.id) return;
+            try {
+                // Menggunakan window.doc dan window.deleteDoc
+                await window.deleteDoc(window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'spbu_configs', currentSpbu.id));
+                // loadSpbuConfigs akan dipanggil oleh onSnapshot, jadi cukup reset state
+                selectedSpbuId = '';
+                isEditingSpbu = false;
+                deleteConfirm = false;
+                displayFeedback('Terhapus.', 'success');
+            } catch (e) { displayFeedback(`Gagal hapus: ${e.message}`, 'error'); }
+        }
+
+        async function handleAiGenerateTemplate() {
+            if (!currentSpbu.name) return displayFeedback('Isi nama SPBU dulu.', 'error');
+            if(isAiGenerating) return;
+            
+            handleSetGenerating(true); // Panggil fungsi yang sudah ada untuk loading
+            document.getElementById('ai-generate-btn').innerHTML = '<div class="spinner"></div>';
+            isAiGenerating = true;
+            displayFeedback('✨ Sedang membuat template...', 'info');
+
+            try {
+                const maxRetries = 3;
+                let lastError = null;
+                let data = null;
+
+                for (let i = 0; i < maxRetries; i++) {
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: `Buat alamat fiktif realistis (multi-baris dengan \\n) untuk SPBU bernama: "${currentSpbu.name}"` }] }],
+                                systemInstruction: { parts: [{ text: `Anda asisten generator nota. Balas HANYA JSON: {"address": "..."}` }] },
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorBody = await response.json();
+                            throw new Error(`API failed with status ${response.status}: ${JSON.stringify(errorBody)}`);
+                        }
+
+                        data = await response.json();
+                        break;
+                    } catch (e) {
+                        lastError = e;
+                        if (i < maxRetries - 1) {
+                            const delay = Math.pow(2, i) * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        }
+                    }
+                }
+
+                if (!data) { throw lastError || new Error("Gagal mendapatkan respons setelah retries."); }
+
+                const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!resultText) { throw new Error("Struktur respons AI tidak valid."); }
+
+                const result = JSON.parse(resultText);
+                currentSpbu.address = result.address || currentSpbu.address;
+                document.getElementById('spbu-address').value = currentSpbu.address; // Update input
+                
+                displayFeedback('✨ Template jadi!', 'success');
+                renderReceiptPreview();
+
+            } catch (e) { 
+                console.error("AI Generation Error:", e);
+                displayFeedback(`AI Gagal: ${e.message || 'Cek koneksi internet.'}`, 'error'); 
+            } finally { 
+                isAiGenerating = false; 
+                document.getElementById('ai-generate-btn').innerHTML = '✨';
+            }
+        }
+
+        // --- EXPORT/PRINT LOGIC ---
+
+        async function generateCanvas() {
+            if (!window.html2canvas || isLibReady === false) {
+                 throw new Error('Library html2canvas belum siap. Mohon tunggu sebentar atau refresh halaman.');
+            }
+            const receiptEl = document.getElementById('receipt-preview');
+            if (!receiptEl) {
+                throw new Error('Tampilan nota tidak ditemukan.');
+            }
+            
+            await new Promise(r => setTimeout(r, 100));
+            
+            const desiredScale = 3; 
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            const finalScale = desiredScale / devicePixelRatio;
+            
+            const width = currentSpbu.receiptWidth || 275;
+
+            return await window.html2canvas(receiptEl, { 
+                scale: finalScale,
+                useCORS: true, 
+                backgroundColor: '#ffffff',
+                width: width, 
+            });
+        }
+        
+        async function handleSetGenerating(state) {
+            isGenerating = state;
+            const exportBtn = document.getElementById('export-image-btn');
+            const printBtn = document.getElementById('print-receipt-btn');
+            
+            if (state) {
+                exportBtn.disabled = true;
+                printBtn.disabled = true;
+                exportBtn.innerHTML = '<div class="spinner"></div><span>Memproses...</span>';
+                printBtn.innerHTML = '<div class="spinner"></div><span>Memproses...</span>';
+            } else {
+                exportBtn.disabled = false;
+                printBtn.disabled = false;
+                exportBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg><span>Export PNG</span>';
+                printBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m0 0h6m-6 0v2a2 2 0 002 2h2a2 2 0 002-2v-2" /></svg><span>Cetak 58mm</span>';
+            }
+        }
+
+        async function handlePrintReceipt() {
+            if (!isLibReady) return displayFeedback('Tunggu sebentar, sedang memuat fitur cetak...', 'info');
+            if (isGenerating) return;
+            
+            handleSetGenerating(true);
+            try {
+                const canvas = await generateCanvas();
+                const imgData = canvas.toDataURL('image/png');
+                
+                const win = window.open('', '_blank');
+                win.document.write(`
+                    <html>
+                        <head>
+                            <title>Cetak Nota</title>
+                            <style>
+                                body { margin: 0; padding: 0; background-color: #eee; display: flex; justify-content: center; }
+                                img { max-width: 100%; height: auto; display: block; }
+                                @media print {
+                                    @page { 
+                                        size: 58mm auto; 
+                                        margin: 0mm;    
+                                    }
+                                    body { 
+                                        margin: 0; 
+                                        width: 58mm;    
+                                        background-color: transparent;
+                                        display: block; 
+                                    }
+                                    .print-container {
+                                        width: 100%;
+                                        margin: 0;
+                                    }
+                                    img {
+                                        width: 100%;    
+                                        image-rendering: pixelated; 
+                                    }
+                                }
+                            </style>
+                        </head>
+                        <body onload="window.print();window.close()">
+                            <div class="print-container">
+                                <img src="${imgData}" alt="Nota Transaksi" />
+                            </div>
+                        </body>
+                    </html>
+                `);
+                win.document.close();
+            } catch (e) { displayFeedback(`Gagal cetak: ${e.message}`, 'error'); }
+            finally { handleSetGenerating(false); }
+        }
+
+        async function handleExportImage() {
+            if (!isLibReady) return displayFeedback('Tunggu sebentar, sedang memuat fitur export...', 'info');
+            if (isGenerating) return;
+            
+            handleSetGenerating(true);
+            try {
+                const canvas = await generateCanvas();
+                const link = document.createElement('a');
+                link.download = `Nota-${transactionData.noTrans}-${transactionData.nopol}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                displayFeedback('Gambar berhasil diexport!', 'success');
+            } catch (e) { displayFeedback(`Gagal export: ${e.message}`, 'error'); }
+            finally { handleSetGenerating(false); }
+        }
+        
+        // Panggil updateDateTime() saat inisialisasi untuk memastikan tanggal dan waktu terkini
+        updateDateTime(); 
+
+    </script>
+</body>
+</html>
